@@ -1,0 +1,4 @@
+-1123 # \0 comment
+-.2
+t-rue
+"text \"quote\""
