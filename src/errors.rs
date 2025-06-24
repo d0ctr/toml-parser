@@ -1,44 +1,47 @@
 use std::fmt::{Display, Debug};
 use core::error::Error;
 
+
 #[derive(Debug)]
 pub enum UnallowedCharacterReason {
-    InLine,
+    // InLine,
     InComment,
     InTypeInteger,
     InTypeBoolean,
     InTypeFloat,
-    // InTypeString,
+    InTypeString,
+    InUnicodeSequence,
 }
 
 #[derive(Debug)]
-pub struct UnallowedCharacter {
-    reason: UnallowedCharacterReason,
-    character: char,
+pub enum FormatError {
+    UnallowedCharacter(char, UnallowedCharacterReason),
+    ExpectedCharacter(char),
+    UnknownEscapeSequence,
 }
 
-impl UnallowedCharacter {
-    pub const fn new(character: char, reason: UnallowedCharacterReason) -> Self {
-        UnallowedCharacter { character, reason }
-    }
-}
-
-impl Display for UnallowedCharacter {
+impl Display for FormatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let reason = match self.reason {
-            UnallowedCharacterReason::InTypeInteger => "in integer",
-            UnallowedCharacterReason::InLine => "in line",
-            UnallowedCharacterReason::InComment => "in a comment",
-            UnallowedCharacterReason::InTypeFloat => "in a float",
-            UnallowedCharacterReason::InTypeBoolean => "in a boolean",
-        };
-
-        write!(f, "unallowed character `{}` {reason}", self.character)
+        match &self {
+            FormatError::UnallowedCharacter(c, reason) => {
+                let reason = match reason {
+                    UnallowedCharacterReason::InTypeInteger => "in integer",
+                    // UnallowedCharacterReason::InLine => "in line",
+                    UnallowedCharacterReason::InComment => "in a comment",
+                    UnallowedCharacterReason::InTypeFloat => "in a float",
+                    UnallowedCharacterReason::InTypeBoolean => "in a boolean",
+                    UnallowedCharacterReason::InTypeString => "in a string",
+                    UnallowedCharacterReason::InUnicodeSequence => "in a unicode escape sequence",
+                };
+                write!(f, "unallowed character `{c}` {reason}")
+            },
+            FormatError::ExpectedCharacter(c) => write!(f, "expected character `{c}`"),
+            FormatError::UnknownEscapeSequence => write!(f, "unknown escape sequence"),
+        }
     }
 }
 
-impl Error for UnallowedCharacter {}
-
+impl Error for FormatError {}
 
 #[derive(Debug)]
 pub struct ParserError {

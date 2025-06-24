@@ -1,4 +1,4 @@
--1123 # \0 comment
--.2
-t-rue
-"text \"quote\""
+-1123 # 
+-.2 # #
+true
+"text \u2764 # \"" # <- some text

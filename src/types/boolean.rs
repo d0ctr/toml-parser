@@ -1,4 +1,4 @@
-use crate::{errors::{ParserError, UnallowedCharacter, UnallowedCharacterReason::InTypeBoolean}, types::common::{check_comment_or_whitespaces}};
+use crate::{errors::{ParserError, FormatError, UnallowedCharacterReason::InTypeBoolean}, types::common::{check_comment_or_whitespaces, Trimmer}};
 
 pub struct Boolean;
 
@@ -11,35 +11,35 @@ impl super::Parser<bool> for Boolean {
         };
 
         // calculating offset for bullseye errors
-        let mut offset = line.chars().count();
-
-        // remove only leading whitespaces, we can leave the rest as is
-        let line = line.trim_start().to_string();
-
-        // offset is reduced to the difference before and after trim
-        offset -= line.chars().count();
+        let (line, mut offset) = line.trim_start_with_difference();
 
         // crate new buffer, here the actual value will be stored
-        let mut buf = vec![];
+        let mut value = String::new();
+        let mut chars = line.chars();
 
-        for (i, c) in line.chars().enumerate() {
-            if c == ' ' || c == '#' {
+        let mut is_comment = false;
+
+        while let Some(c) = chars.next() {
+            offset += 1;
+
+            if c == ' ' {
                 // if we hit a space or a comment -> break
                 break;
+            } else if c == '#' {
+                is_comment = true;
+                break;
             }
+
             if !['t','r','u','e','f','a','l','s'].contains(&c) {
-                return ParserError::from(UnallowedCharacter::new(c, InTypeBoolean), offset + buf.len())
+                return ParserError::from(FormatError::UnallowedCharacter(c, InTypeBoolean), offset)
             }
-
-            buf.push(c);
-        };
-
-        // this will be parsed
-        let value = dbg!(String::from_iter(buf.iter()));
+    
+            value.push(c);    
+        }
 
         // check the remainder of the line can be a comment or a whitespaces
-        let (_, remainder) = line.split_at(value.len());
-        if let Some(err) = check_comment_or_whitespaces(remainder) {
+        let remainder = String::from_iter(chars);
+        if let Some(err) = check_comment_or_whitespaces(&remainder, is_comment) {
             return ParserError::extend(err, offset)
         }
 

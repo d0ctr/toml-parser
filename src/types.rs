@@ -3,12 +3,12 @@ mod common;
 mod integer;
 mod float;
 mod boolean;
-// mod string;
+mod string;
 
 pub use integer::Integer;
 pub use float::Float;
 pub use boolean::Boolean;
-// pub use string::{BasicString};
+pub use string::{BasicString};
 
 
 pub trait Parser<T> {

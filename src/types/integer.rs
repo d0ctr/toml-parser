@@ -1,5 +1,5 @@
 use super::common::check_comment_or_whitespaces;
-use crate::errors::{ParserError, UnallowedCharacter, UnallowedCharacterReason::InTypeInteger};
+use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason::InTypeInteger}, types::common::Trimmer};
 
 pub struct Integer;
 
@@ -11,49 +11,39 @@ impl super::Parser<isize> for Integer {
             Err(err) => return ParserError::from(err, 0),
         };
 
-        // calculating offset for bullseye errors
-        let mut offset = line.chars().count();
+        let (line, mut offset) = line.trim_start_with_difference();
 
-        // remove only leading whitespaces, we can leave the rest as is
-        let line = line.trim_start().to_string();
+        let mut value = String::new();
+        let mut chars = line.chars();
+        let mut is_comment = false;
+        
+        let mut signed = false;
+        while let Some(c) = chars.next() {
 
-        // offset is reduced to the difference before and after trim
-        offset -= line.chars().count();
-
-        // crate new buffer, here the actual value will be stored
-        let mut buf = vec![];
-        let mut flag: u8 = 0b00;
-
-        for (i, c) in line.chars().enumerate() {
-            if c == ' ' || c == '#' {
+            if c == ' ' {
                 // if we hit a space or a comment -> break
                 break;
+            } else if c == '#' {
+                is_comment = true;
+                break;
             }
-
+    
             if ('0'..='9').contains(&c) {
-                // first digit sets validity
-                flag = 0b01;
+                // first digit also sets the sign
+                signed = true;
+            } else if (c == '+' || c == '-') && !signed {
+                signed = true;
             } else {
-                if c == '+' || c == '-' {
-                    // if the character is not a digit or a sign -> fail
-                    flag += 0b01;
-                } else {
-                    return ParserError::from(UnallowedCharacter::new(c, InTypeInteger), offset + i);
-                }
+                return ParserError::from(FormatError::UnallowedCharacter(c, InTypeInteger), offset);
             }
-            if flag > 0b01 {
-                return ParserError::from(UnallowedCharacter::new(c, InTypeInteger), offset + i);
-            }
-
-            buf.push(c);
-        };
-
-        // this will be parsed
-        let value = dbg!(String::from_iter(buf.iter()));
+    
+            value.push(c);
+            offset += 1;
+        }
 
         // check the remainder of the line can be a comment or a whitespaces
-        let (_, remainder) = line.split_at(value.len());
-        if let Some(err) = check_comment_or_whitespaces(remainder) {
+        let remainder = String::from_iter(chars);
+        if let Some(err) = check_comment_or_whitespaces(&remainder, is_comment) {
             return ParserError::extend(err, offset)
         }
 

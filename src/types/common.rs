@@ -1,4 +1,7 @@
-use crate::{errors::{ParserError, UnallowedCharacter, UnallowedCharacterReason::{InComment,InLine}}, COMMENT_START, CTRL_CHARACTERS};
+use core::str;
+
+use crate::errors::{ParserError, FormatError, UnallowedCharacterReason::InComment};
+use crate::{CTRL_CHARACTERS, STRING_REPLACEMENTS};
 
 /**
  always returns a bytes buffer, it may be emppty 
@@ -20,47 +23,58 @@ pub fn read_line(reader: &mut dyn std::io::Read) -> std::vec::Vec<u8> {
     }
 }
 
-pub fn check_comment_or_whitespaces(comment: &str) -> Option<ParserError> {
-    let mut offset = comment.len();
-    let line = comment.trim();
-    offset -= line.len();
+pub fn check_comment_or_whitespaces(line: &str, is_comment: bool) -> Option<ParserError> {
+    let (line, mut offset) = line.trim_start_with_difference();
 
-    if let Some(c) = line.chars().next() {
-        if c != COMMENT_START {
-            return ParserError::from::<(),UnallowedCharacter>(UnallowedCharacter::new(c, InLine), offset).err();
+    let mut chars = line.chars();
+    let mut is_comment = is_comment;
+
+    while let Some(c) = chars.next() {
+        if !is_comment && c != '#' {
+            return ParserError::from::<(),FormatError>(FormatError::ExpectedCharacter('#'), offset).err();
+        } else {
+            is_comment = true;
         }
-    } else {
-        return None;
+        
+        if c.is_control() && !CTRL_CHARACTERS.contains(&c) {
+            return ParserError::from::<(),FormatError>(FormatError::UnallowedCharacter(c, InComment), offset).err();
+        }
+        offset += 1;
     }
 
-    for (i, c) in line.chars().enumerate() {
-
-        if CTRL_CHARACTERS.contains(&c) {
-            return ParserError::from::<(),UnallowedCharacter>(UnallowedCharacter::new(c, InComment), offset + i).err();
-        }
-    }
     None
 }
 
-pub trait FromUtf8Trimmed {
-    fn from_utf8_trimmed_line(buf: std::vec::Vec<u8>) -> Result<String,ParserError>;
+pub trait Trimmer {
+    /// Trims leading whitespace character and returns a union of the trimmed string and the difference in bytes between versions
+    fn trim_start_with_difference(&self) -> (&str,usize);
 }
 
-impl FromUtf8Trimmed for String {
-    fn from_utf8_trimmed_line(buf: std::vec::Vec<u8>) -> Result<String,ParserError> {
-        let mut line = match String::from_utf8(buf) {
-            Ok(v) => v,
-            Err(err) => return ParserError::from(err, 0),
-        };
+impl Trimmer for str {
+    fn trim_start_with_difference(&self) -> (&str,usize) {
+        let mut count = self.len();
+        let line = self.trim_start();
+        count -= line.len();
     
-        if let Some(split_index) = line.find(COMMENT_START) {
-            let comment = line.split_off(split_index);
-            if let Some(err) = check_comment_or_whitespaces(&comment) {
-                return ParserError::extend(err, line.len());
-            }
-        }
-    
-        Ok(line.trim().to_string())
+        (line, count)
     }
 }
 
+impl Trimmer for String {
+    fn trim_start_with_difference(&self) -> (&str,usize) {
+        let mut count = self.len();
+        let line = self.trim_start();
+        count -= line.len();
+    
+        (line, count)
+    }
+
+}
+
+pub fn find_replacement_char(sequence: &str) -> Option<char> {
+    if let Some(c) = STRING_REPLACEMENTS.iter().find(|entry| entry.0 == sequence).map(|entry| entry.1) {
+        return Some(c);
+    }
+
+    None
+}
