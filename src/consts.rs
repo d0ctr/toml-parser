@@ -5,7 +5,7 @@ pub const WHITESPACE_SPACE: char = ' ';
 
 pub const NEWLINE_LF: char = '\n';
 pub const NEWLINE_CRLF: &str = "\r\n";
-
+pub const NEWLINE_CHARS: [char; 2] = ['\n','\r'];
 
 const fn control_characters() -> [char; 32] {
     let mut arr: [char; 32] = ['\0'; 32];
@@ -25,11 +25,11 @@ const fn control_characters() -> [char; 32] {
         code += 1;
     }
 
-    arr[i] = char::from_u32(0x007f_u32).unwrap();
+    arr[i] = char::from_u32(0x007f).unwrap();
 
     arr
 }
-pub const CTRL_CHARACTERS: [char; 32] = control_characters();
+pub const ALLOWED_CTRL_CHARACTERS: [char; 32] = control_characters();
 
 pub const UTF_8_ESCAPE_SHORT: &str = r"\u([0-9A-Fa-f]{4})";
 pub const UTF_8_ESCAPE_LONG:  &str = r"\U([0-9A-Fa-f]{8})";

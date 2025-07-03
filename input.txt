@@ -1,4 +1,32 @@
--1123 # 
--.2 # #
-true
-"text \u2764 # \"" # <- some text
+fail = falsee
+boolean = true
+fail = truue
+boolean = false # smth
+boolean = false# smth
+fail = false smth
+
+float = 0.1
+float = .1
+float = 0.
+float = -0.
+float = 0. # smth
+float = 0.#smth
+fail = 0.1 smth
+
+integer = +0
+integer = -0
+fail = +0+
+fail = 0+
+integer = 0 # smth
+integer = 0#smth
+fail = 0 smth
+
+string = "foo"
+fail = ""foo"
+string = "foo\tbar"
+fail = "foo\0bar"
+string = "foo\u2318"
+string = "foo #smth"
+fail = "foo" # smth
+fail = "foo❤"#smth
+fail = "foo" smth

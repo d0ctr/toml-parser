@@ -1,7 +1,7 @@
 use core::str;
 
 use crate::errors::{ParserError, FormatError, UnallowedCharacterReason::InComment};
-use crate::{CTRL_CHARACTERS, STRING_REPLACEMENTS};
+use crate::{ALLOWED_CTRL_CHARACTERS, NEWLINE_CHARS, STRING_REPLACEMENTS};
 
 /**
  always returns a bytes buffer, it may be emppty 
@@ -23,23 +23,37 @@ pub fn read_line(reader: &mut dyn std::io::Read) -> std::vec::Vec<u8> {
     }
 }
 
-pub fn check_comment_or_whitespaces(line: &str, is_comment: bool) -> Option<ParserError> {
-    let (line, mut offset) = line.trim_start_with_difference();
-
-    let mut chars = line.chars();
+pub fn check_comment_or_whitespaces(iter: &mut std::str::Chars, is_comment: bool) -> Option<ParserError> {
+    let mut offset = 0;
     let mut is_comment = is_comment;
+    let mut c: char;
 
-    while let Some(c) = chars.next() {
+    if let Some((pos,last_c)) = crate::skip_whitespaces(iter) {
+        offset += pos + 1;
+        c = last_c;
+    } else {
+        return None
+    }
+
+    let mut _iter = iter.take_while(|c| !NEWLINE_CHARS.contains(c));
+
+    loop {
         if !is_comment && c != '#' {
             return ParserError::from::<(),FormatError>(FormatError::ExpectedCharacter('#'), offset).err();
-        } else {
+        } else if !is_comment {
             is_comment = true;
         }
         
-        if c.is_control() && !CTRL_CHARACTERS.contains(&c) {
+        if c.is_control() && !ALLOWED_CTRL_CHARACTERS.contains(&c) {
             return ParserError::from::<(),FormatError>(FormatError::UnallowedCharacter(c, InComment), offset).err();
         }
-        offset += 1;
+        
+        if let Some(_c) = _iter.next() {
+            c = _c;
+            offset += 1;
+        } else {
+            break;
+        }
     }
 
     None

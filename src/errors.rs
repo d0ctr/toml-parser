@@ -7,8 +7,9 @@ pub enum UnallowedCharacterReason {
     // InLine,
     InComment,
     InTypeInteger,
-    InTypeBoolean,
     InTypeFloat,
+    InTypeNumber,
+    InTypeBoolean,
     InTypeString,
     InUnicodeSequence,
 }
@@ -18,6 +19,7 @@ pub enum FormatError {
     UnallowedCharacter(char, UnallowedCharacterReason),
     ExpectedCharacter(char),
     UnknownEscapeSequence,
+    EmptyValue
 }
 
 impl Display for FormatError {
@@ -25,10 +27,11 @@ impl Display for FormatError {
         match &self {
             FormatError::UnallowedCharacter(c, reason) => {
                 let reason = match reason {
-                    UnallowedCharacterReason::InTypeInteger => "in integer",
+                    UnallowedCharacterReason::InTypeInteger => "in an integer",
+                    UnallowedCharacterReason::InTypeNumber => "in a number",
+                    UnallowedCharacterReason::InTypeFloat => "in a float",
                     // UnallowedCharacterReason::InLine => "in line",
                     UnallowedCharacterReason::InComment => "in a comment",
-                    UnallowedCharacterReason::InTypeFloat => "in a float",
                     UnallowedCharacterReason::InTypeBoolean => "in a boolean",
                     UnallowedCharacterReason::InTypeString => "in a string",
                     UnallowedCharacterReason::InUnicodeSequence => "in a unicode escape sequence",
@@ -37,6 +40,7 @@ impl Display for FormatError {
             },
             FormatError::ExpectedCharacter(c) => write!(f, "expected character `{c}`"),
             FormatError::UnknownEscapeSequence => write!(f, "unknown escape sequence"),
+            FormatError::EmptyValue => write!(f, "empty value"),
         }
     }
 }
@@ -64,13 +68,15 @@ impl ParserError {
         })
     }
 
-    pub fn panic(&self, line: &str) {
-        print!("{}", line);
-        let mut underline = vec!['-'; self.offset];
+    pub fn explain(&self, line: &str) {
+        println!("{}", line.trim_end());
+
+        let mut underline = vec![' '; self.offset];
         underline.push('^');
         let underline = String::from_iter(underline.iter());
         println!("{}", underline);
-        panic!("{}", self);
+
+        println!("{}", self)
     }
 }
 
