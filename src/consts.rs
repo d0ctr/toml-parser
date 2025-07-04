@@ -4,6 +4,7 @@ pub const WHITESPACE_TAB  : char = '\t';
 pub const WHITESPACE_SPACE: char = ' ';
 
 pub const NEWLINE_LF: char = '\n';
+pub const NEWLINE_CR: char = '\r';
 pub const NEWLINE_CRLF: &str = "\r\n";
 pub const NEWLINE_CHARS: [char; 2] = ['\n','\r'];
 

@@ -1,52 +1,38 @@
 mod errors;
+mod reader;
 mod common;
 mod types;
 mod macros;
 mod consts;
 mod parser;
 
-use std::{char, fs::File, io::BufRead, string};
-
 pub use consts::*;
 pub use common::*;
+pub use common::CharExt;
 
-use crate::{errors::ParserError, parser::parse_value, types::{ParsedValue,NumberType}};
-
-// use crate::types::Parser;
-
-fn skip_key(iter: &mut std::str::Chars) -> Option<usize> {
-    let mut pos = 0;
-    while let Some(c) = iter.next() {
-        if !c.is_whitespace() {
-            return Some(pos);
-        }
-        pos += 1
-    }
-
-    None
-}
+use crate::{errors::ParserError, parser::parse_value, reader::char_supplier::{Reader, Supplier}, types::{NumberType, ParsedValue}};
 
 fn main() {
-    let f = File::open("input.txt").unwrap();
-    let mut reader = std::io::BufReader::new(f);
+    let f = std::fs::File::open("input.txt").unwrap();
+    let mut reader = Reader::new(f);
+    let mut supplier = reader.iter();
 
-    
-    loop {
-        let mut buf = String::new();
-        if let Ok(bytes) = reader.read_line(&mut buf) {
-            if bytes == 0 {
-                break;
+    while !supplier.is_end() {
+        let (mut offset, c) = match skip_whitespaces(&mut supplier) {
+            Some(v) => v,
+            None => continue,
+        };
+
+        if c == '#' {
+            if let Some(err) = check_comment_or_whitespaces(&mut supplier, true) {
+                err.explain(supplier.get_last_line());
             }
+            continue;
         }
 
-        let dbg_cp = buf.clone();
-        let mut chars: std::str::Chars<'_> = buf.chars();
-        
-        let mut offset = 0;
-
-        let mut key = String::new();
+        let mut key = String::from(c);
         if loop {
-            if let Some(c) = chars.next() {
+            if let Some(c) = supplier.get() {
                 offset += 1;
                 if c == '=' {
                     break false;
@@ -59,17 +45,17 @@ fn main() {
             continue;
         }
 
-        match parse_value(&mut chars) {
+        match parse_value(&mut supplier) {
             Ok(wrapped_value) => match wrapped_value {
-                ParsedValue::Boolean(value) => { println!("{} = {}", key.trim(), value); },
+                ParsedValue::Boolean(value) => { println!("{} = {}\n\t{}", key.trim(), value, supplier.get_last_line()); },
                 ParsedValue::Number(num) => match num {
-                    NumberType::Float(value) => { println!("{} = {:.1}", key.trim(), value); },
-                    NumberType::Integer(value) => { println!("{} = {}", key.trim(), value); },
+                    NumberType::Float(value) => { println!("{} = {:.1}\n\t{}", key.trim(), value, supplier.get_last_line()); },
+                    NumberType::Integer(value) => { println!("{} = {}\n\t{}", key.trim(), value, supplier.get_last_line()); },
                 },
-                ParsedValue::String(value) => { println!("{} = {}", key.trim(), value); },
+                ParsedValue::String(value) => { println!("{} = {}\n\t{}", key.trim(), value, supplier.get_last_line()); },
             },
             Err(err) => if let Err(_err) = ParserError::extend::<()>(err, offset) {
-                _err.explain(&dbg_cp);
+                _err.explain(supplier.get_last_line());
             }
         }
     }

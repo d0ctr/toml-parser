@@ -1,24 +1,34 @@
-use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, types::NumberType};
-use crate::types::common::{check_comment_or_whitespaces};
+use crate::{check_comment_or_whitespaces, errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, types::NumberType, CharExt as _};
 
 pub struct Number;
 
 impl super::TypeParser<NumberType> for Number {
-    fn parse(first: char, iter: &mut std::str::Chars) -> Result<NumberType, crate::errors::ParserError> {
+    fn parse(first: char, iter: &mut impl Supplier) -> Result<NumberType, crate::errors::ParserError> {
         let mut offset = 0;
         let mut is_comment = false;
-        let mut _iter = iter.take_while(|c| !c.is_whitespace());
 
-        let mut signed = ['+', '-'].contains(&first);
+        let mut signed = true;
         let mut dotted = first == '.';
 
         let mut value = String::from(first);
-        while let Some(c) = _iter.next() {
+        let check_comment = loop {
+            let c = if let Some(_c) = iter.get() {
+                if _c.is_linebreak() {
+                    break false;
+                }
+                if _c.is_whitespace() {
+                    break true;
+                }
+                _c
+            } else {
+                break false;
+            };
+            
             offset += 1;
             
             if c == '#' {
                 is_comment = true;
-                break;
+                break true;
             } else if ('0'..='9').contains(&c) {
                 // first digit also sets the sign
                 signed = true
@@ -27,14 +37,16 @@ impl super::TypeParser<NumberType> for Number {
             } else if c == '.' && !dotted {
                 dotted = true;
             } else {
-                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeFloat), offset)
+                return ParserError::from(FormatError::UnallowedCharacter(c, if dotted { UnallowedCharacterReason::InTypeFloat } else { UnallowedCharacterReason::InTypeNumber }), offset)
             }
     
             value.push(c);
-        }
+        };
 
-        if let Some(err) = check_comment_or_whitespaces(iter, is_comment) {
-            return ParserError::extend(err, offset)
+        if check_comment {
+            if let Some(err) = check_comment_or_whitespaces(iter, is_comment) {
+                return ParserError::extend(err, offset)
+            }
         }
 
         if dotted {

@@ -1,9 +1,9 @@
 use super::types;
 use super::types::TypeParser;
-use crate::errors::{FormatError, ParserError};
+use crate::{errors::{FormatError, ParserError}, reader::char_supplier::Supplier};
 
 
-pub fn parse_value(iter: &mut std::str::Chars) -> Result<types::ParsedValue,ParserError> {
+pub fn parse_value(iter: &mut impl Supplier) -> Result<types::ParsedValue,ParserError> {
     let mut offset = 0;
     let c: char;
 
