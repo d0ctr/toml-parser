@@ -26,7 +26,7 @@ impl super::TypeParser<NumberType> for Number {
             
             offset += 1;
             
-            if c == '#' {
+            if c.is_comment_start() {
                 is_comment = true;
                 break true;
             } else if ('0'..='9').contains(&c) {
@@ -37,7 +37,7 @@ impl super::TypeParser<NumberType> for Number {
             } else if c == '.' && !dotted {
                 dotted = true;
             } else {
-                return ParserError::from(FormatError::UnallowedCharacter(c, if dotted { UnallowedCharacterReason::InTypeFloat } else { UnallowedCharacterReason::InTypeNumber }), offset)
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeNumber), offset)
             }
     
             value.push(c);

@@ -1,7 +1,7 @@
 pub mod char_supplier {
     use utf8_chars::BufReadCharsExt as _;
 
-    use crate::{NEWLINE_CHARS, NEWLINE_CR, NEWLINE_LF};
+    use crate::{CharExt, NEWLINE_CR, NEWLINE_CRLF, NEWLINE_LF, NEWLINE_LF_STR};
 
     pub trait Supplier {
         fn get(&mut self) -> Option<char>;
@@ -13,11 +13,6 @@ pub mod char_supplier {
     }
 
     impl<'a,R: std::io::Read> Reader<R> {
-        pub fn from_bufreader(inner: std::io::BufReader<R>) -> Reader<R> {
-            Self {
-                inner
-            }
-        }
 
         pub fn new(inner: R) -> Reader<R> {
             Self {
@@ -30,7 +25,7 @@ pub mod char_supplier {
                 end: false,
                 inner: self.inner.chars_raw(),
                 last_line: std::string::String::new(),
-                line_end: false
+                line_end_buf: std::string::String::with_capacity(2)
             }
         }
     }
@@ -39,12 +34,12 @@ pub mod char_supplier {
         end: bool,
         inner: utf8_chars::CharsRaw<'a, std::io::BufReader<R>>,
         last_line: std::string::String,
-        line_end: bool
+        line_end_buf: std::string::String
     }
 
     impl<R: std::io::Read> Iterator<'_,R> {
         pub fn get_last_line(&mut self) -> &str {
-            while !self.line_end {
+            while !self.is_line_end() {
                 self.next();
             }
             return &self.last_line;
@@ -52,6 +47,13 @@ pub mod char_supplier {
 
         pub fn is_end(&self) -> bool {
             self.end
+        }
+
+        pub fn is_line_end(&self) -> bool {
+            match self.line_end_buf.as_str() {
+                NEWLINE_CRLF | NEWLINE_LF_STR => true,
+                _ => false,
+            }
         }
     }
 
@@ -66,14 +68,11 @@ pub mod char_supplier {
             return match self.inner.next() {
                 Some(next) => match next {
                     Ok(c) => {
-                        if c == NEWLINE_LF {
-                            self.line_end = true;
-                        } else if self.line_end && c == NEWLINE_CR {
-                            self.line_end = false;
-                            return self.next();
+                        if c.is_linebreak() && !self.is_line_end() {
+                            self.line_end_buf.push(c);
                         } else {
-                            if self.line_end {
-                                self.line_end = false;
+                            if self.is_line_end() {
+                                self.line_end_buf.clear();
                                 self.last_line.clear();
                             }
                             self.last_line.push(c);

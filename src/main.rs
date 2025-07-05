@@ -13,7 +13,7 @@ pub use common::CharExt;
 use crate::{errors::ParserError, parser::parse_value, reader::char_supplier::{Reader, Supplier}, types::{NumberType, ParsedValue}};
 
 fn main() {
-    let f = std::fs::File::open("input.txt").unwrap();
+    let f = std::fs::File::open("input.toml").unwrap();
     let mut reader = Reader::new(f);
     let mut supplier = reader.iter();
 
@@ -23,7 +23,7 @@ fn main() {
             None => continue,
         };
 
-        if c == '#' {
+        if c.is_comment_start() {
             if let Some(err) = check_comment_or_whitespaces(&mut supplier, true) {
                 err.explain(supplier.get_last_line());
             }

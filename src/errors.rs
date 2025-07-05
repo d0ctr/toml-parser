@@ -6,11 +6,10 @@ use core::error::Error;
 pub enum UnallowedCharacterReason {
     // InLine,
     InComment,
-    InTypeInteger,
-    InTypeFloat,
     InTypeNumber,
     InTypeBoolean,
-    InTypeString,
+    InTypeBasicString,
+    InTypeLiteralString,
     InUnicodeSequence,
 }
 
@@ -27,13 +26,12 @@ impl Display for FormatError {
         match &self {
             FormatError::UnallowedCharacter(c, reason) => {
                 let reason = match reason {
-                    UnallowedCharacterReason::InTypeInteger => "in an integer",
                     UnallowedCharacterReason::InTypeNumber => "in a number",
-                    UnallowedCharacterReason::InTypeFloat => "in a float",
                     // UnallowedCharacterReason::InLine => "in line",
                     UnallowedCharacterReason::InComment => "in a comment",
                     UnallowedCharacterReason::InTypeBoolean => "in a boolean",
-                    UnallowedCharacterReason::InTypeString => "in a string",
+                    UnallowedCharacterReason::InTypeBasicString => "in a basic string",
+                    UnallowedCharacterReason::InTypeLiteralString => "in a literal string",
                     UnallowedCharacterReason::InUnicodeSequence => "in a unicode escape sequence",
                 };
                 write!(f, "unallowed character `{c}` {reason}")

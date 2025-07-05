@@ -1,13 +1,24 @@
-use crate::{check_comment_or_whitespaces, errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, types::TypeParser, NEWLINE_CHARS};
-use crate::UNICODE_SEQUENCE_CHARS;
-use super::common::find_replacement_char;
+use crate::{UNICODE_HIGH_ESCAPE_START, UNICODE_LOW_ESCAPE_START, WHITESPACE_TAB};
+use crate::{check_comment_or_whitespaces, reader::char_supplier::Supplier, types::TypeParser, CharExt, DOUBLE_QUOTE, ESCAPE_START, SINGLE_QUOTE};
+use crate::errors::{FormatError, ParserError, UnallowedCharacterReason};
+use super::common::to_escaped_char;
 
 pub struct String;
 
 enum EscapeSequenceType {
-    ShortUnicode,
-    LongUnicode,
-    EscapeChar
+    LowUnicode,
+    HighUnicode,
+    EscapedChar
+}
+
+impl EscapeSequenceType {
+    fn to_unicode_type(start: &str) -> Option<Self> {
+        match start {
+            UNICODE_LOW_ESCAPE_START => Some(Self::LowUnicode),
+            UNICODE_HIGH_ESCAPE_START => Some(Self::HighUnicode),
+            _ => None
+        }
+    }
 }
 
 fn codepoint_to_char(codepoint: &str) -> Option<char> {
@@ -20,45 +31,39 @@ fn codepoint_to_char(codepoint: &str) -> Option<char> {
 /// returns a union of (replacement char, last read)
 fn read_escape_seq(iter: &mut impl Supplier) -> Result<(char,usize),FormatError> { 
     let mut len: u8 = 1;
-    let mut seq = std::string::String::from('\\');
-    let mut seq_type = EscapeSequenceType::EscapeChar;
+    let mut seq = std::string::String::from(ESCAPE_START);
+    let mut seq_type = EscapeSequenceType::EscapedChar;
 
     while let Some(c) = iter.get() {
         seq.push(c);
         len += 1;
 
         match seq_type {
-            EscapeSequenceType::EscapeChar => {
-                match seq.as_str() {
-                    r"\u" => {
-                        seq_type = EscapeSequenceType::ShortUnicode;
-                        seq.clear();
-                        len = 0;
-                    },
-                    r"\U" => {
-                        seq_type = EscapeSequenceType::LongUnicode;
-                        seq.clear();
-                        len = 0;
-                    },
-                    value => return match find_replacement_char(value) {
+            EscapeSequenceType::EscapedChar => {
+                if let Some(new_type) = EscapeSequenceType::to_unicode_type(seq.as_str()) {
+                    seq_type = new_type;
+                    seq.clear();
+                    len = 0;
+                } else {
+                    return match to_escaped_char(seq.as_str()) {
                         Some(c) => Ok((c, len as usize)),
                         None => Err(FormatError::UnknownEscapeSequence),
-                    },
+                    };
                 }
             },
-            EscapeSequenceType::LongUnicode if len == 6 => {
+            EscapeSequenceType::HighUnicode if len == 6 => {
                 return match codepoint_to_char(&seq) {
                     Some(c) => Ok((c, len as usize)),
                     None => Err(FormatError::UnknownEscapeSequence)
                 }
             },
-            EscapeSequenceType::ShortUnicode if len == 4 => {
+            EscapeSequenceType::LowUnicode if len == 4 => {
                 return match codepoint_to_char(&seq) {
                     Some(c) => Ok((c, len as usize)),
                     None => Err(FormatError::UnknownEscapeSequence)
                 }
             },
-            _ => if !UNICODE_SEQUENCE_CHARS.contains(&c) {
+            _ => if !c.is_digit(16) {
                 return Err(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InUnicodeSequence))
             }
         }
@@ -72,16 +77,18 @@ enum StringType {
     Basic,
     LiteralMultiline,
     BasicMultiline,
-    
 }
 
 impl StringType {
-    fn is_type_quote(&self, c: &char) -> bool {
+    fn quote(&self) -> char {
         match self {
-            StringType::Literal | StringType::LiteralMultiline if c.eq(&'\'') => true,
-            StringType::Basic | StringType::BasicMultiline if c.eq(&'"') => true,
-            _ => false
+            StringType::Basic | StringType::BasicMultiline => DOUBLE_QUOTE,
+            StringType::Literal | StringType::LiteralMultiline => SINGLE_QUOTE
         }
+    }
+
+    fn is_type_quote(&self, c: &char) -> bool {
+        self.quote() == *c
     }
 
     fn to_multiline(self) -> Self {
@@ -92,21 +99,17 @@ impl StringType {
         }
     }
 
-    fn is_multiline(self) -> bool {
-        match self {
-            StringType::BasicMultiline | StringType::LiteralMultiline => true,
-            _ => false,
-        }
-    }
-
     fn parse(self, first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
         match self {
             Self::Basic => Self::parse_as_basic(first, iter),
+            Self::Literal => Self::parse_as_literal(first, iter),
             _ => ParserError::from(FormatError::EmptyValue, 0)
         }
     }
 
     fn parse_as_basic(first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
+        const TYPE: StringType = StringType::Basic;
+
         let mut offset = 0;
 
         let mut value = std::string::String::new();
@@ -114,11 +117,15 @@ impl StringType {
         let mut c = first;
         loop {
             offset += 1;
-            if c == '"' {
+            if TYPE.is_type_quote(&c) {
                 break; 
             }
 
-            if c == '\\' {
+            if c.is_special_control() {
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeBasicString), offset);
+            }
+
+            if c == ESCAPE_START {
                 match read_escape_seq(iter) {
                     Ok((replacement, pos)) => {
                         c = replacement;
@@ -131,12 +138,45 @@ impl StringType {
             value.push(c);
 
             c = if let Some(_c) = iter.get() {
-                if NEWLINE_CHARS.contains(&_c) {
-                    return ParserError::from(FormatError::ExpectedCharacter('"'), offset);
+                if _c.is_linebreak() {
+                    return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()), offset);
                 }
                 _c
             } else {
-                return ParserError::from(FormatError::ExpectedCharacter('"'), offset);
+                return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()), offset);
+            }
+        }
+
+        Ok((value, offset))
+    }
+
+    fn parse_as_literal(first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
+        const TYPE: StringType = StringType::Literal;
+
+        let mut offset = 0;
+
+        let mut value = std::string::String::new();
+
+        let mut c = first;
+        loop {
+            offset += 1;
+            if TYPE.is_type_quote(&c) {
+                break; 
+            }
+
+            if c.is_control() && c != WHITESPACE_TAB {
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeBasicString), offset);
+            }
+
+            value.push(c);
+
+            c = if let Some(_c) = iter.get() {
+                if _c.is_linebreak() {
+                    return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()), offset);
+                }
+                _c
+            } else {
+                return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()), offset);
             }
         }
 
@@ -147,7 +187,11 @@ impl StringType {
 impl TypeParser<std::string::String> for String {
     fn parse(first: char, iter: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
         let mut offset = 0;
-        let mut string_type = if first == '"' { StringType::Basic } else { StringType::Literal };
+        let mut string_type = if StringType::Basic.is_type_quote(&first) {
+            StringType::Basic
+        } else {
+            StringType::Literal
+        };
         
         let mut is_multiline: u8 = 0b1;
         let (is_multiline, is_empty_string, c) = loop {

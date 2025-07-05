@@ -25,7 +25,7 @@ impl super::TypeParser<bool> for Boolean {
 
             offset += 1;
             
-            if c == '#' {
+            if c.is_comment_start() {
                 is_comment = true;
                 break true;
             } else if !['t','r','u','e','f','a','l','s'].contains(&c) {

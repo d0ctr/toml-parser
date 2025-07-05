@@ -1,4 +1,4 @@
-use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, ALLOWED_CTRL_CHARACTERS, NEWLINE_CHARS};
+use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, COMMENT_START, NEWLINE_CR, NEWLINE_LF, SPECIAL_CTRL_CHARACTERS, WHITESPACE_SPACE, WHITESPACE_TAB};
 
 pub fn skip_whitespaces(iter: &mut impl Supplier) -> Option<(usize,char)> {
     let mut pos = 0;
@@ -17,11 +17,29 @@ pub fn skip_whitespaces(iter: &mut impl Supplier) -> Option<(usize,char)> {
 
 pub trait CharExt {
     fn is_linebreak(&self) -> bool;
+
+    fn is_special_control(&self) -> bool;
+
+    fn is_whitespace(&self) -> bool;
+
+    fn is_comment_start(&self) -> bool;
 }
 
 impl CharExt for char {
     fn is_linebreak(&self) -> bool {
-        NEWLINE_CHARS.contains(self)
+        [NEWLINE_LF, NEWLINE_CR].contains(self)
+    }
+
+    fn is_special_control(&self) -> bool {
+        SPECIAL_CTRL_CHARACTERS.contains(self)
+    }
+
+    fn is_whitespace(&self) -> bool {
+        [WHITESPACE_SPACE, WHITESPACE_TAB].contains(self)
+    }
+
+    fn is_comment_start(&self) -> bool {
+        *self == COMMENT_START
     }
 }
 
@@ -38,18 +56,18 @@ pub fn check_comment_or_whitespaces(iter: &mut impl Supplier, is_comment: bool) 
     }
 
     loop {
-        if !is_comment && c != '#' {
-            return ParserError::from::<(),FormatError>(FormatError::ExpectedCharacter('#'), offset).err();
+        if !is_comment && !c.is_comment_start() {
+            return ParserError::from::<(),FormatError>(FormatError::ExpectedCharacter(COMMENT_START), offset).err();
         } else if !is_comment {
             is_comment = true;
         }
         
-        if c.is_control() && !ALLOWED_CTRL_CHARACTERS.contains(&c) {
+        if c.is_control() && !c.is_special_control() {
             return ParserError::from::<(),FormatError>(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InComment), offset).err();
         }
         
         if let Some(_c) = iter.get() {
-            if NEWLINE_CHARS.contains(&_c) {
+            if _c.is_linebreak() {
                 break;
             }
 
