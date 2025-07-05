@@ -1,9 +1,9 @@
-#fail = falsee
+fail = falsee
 boolean = true
-#fail = truue
+fail = truue
 boolean = false # smth
 boolean = false# smth
-#fail = false smth
+fail = false smth
 
 float = 0.1
 float = .1
@@ -11,34 +11,35 @@ float = 0.
 float = -0.
 float = 0. # smth
 float = 0.#smth
-#fail = 0.1 smth
+fail = 0.1 smth
 
 integer = +0
 integer = -0
-#fail = +0+
-#fail = 0+
+fail = +0+
+fail = 0+
 integer = 0 # smth
 integer = 0#smth
-#fail = 0 smth
+fail = 0 smth
 
 basic = "foo"
+fail = "foo
 # fail = ""foo"
 basic = "foo\tbar"
 # fail = "foo\0bar"
 basic = "foo\u2318"
 basic = "foo #smth"
-#fail = "foo" # smth
-#fail = "foo❤"#smth
-#fail = "foo" smth
+fail = "foo" # smth
+fail = "foo❤"#smth
+fail = "foo" smth
 
 literal = 'foo'
 fail = 'foo
 fail = ''foo'
 literal = 'foo\tbar'
-fail = 'foo\0bar'
+literal = 'foo\0bar'
 literal = 'foo\u2318'
 literal = '"foo" #smth'
-#fail = 'foo' # smth
-#fail = 'foo❤'#smth
-#fail = 'foo' smth
+fail = 'foo' # smth
+fail = 'foo❤'#smth
+fail = 'foo' smth
 

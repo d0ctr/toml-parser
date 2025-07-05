@@ -110,13 +110,12 @@ impl StringType {
     fn parse_as_basic(first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
         const TYPE: StringType = StringType::Basic;
 
-        let mut offset = 0;
+        let mut offset = 1;
 
         let mut value = std::string::String::new();
 
         let mut c = first;
         loop {
-            offset += 1;
             if TYPE.is_type_quote(&c) {
                 break; 
             }
@@ -136,6 +135,7 @@ impl StringType {
             }
 
             value.push(c);
+            offset += 1;
 
             c = if let Some(_c) = iter.get() {
                 if _c.is_linebreak() {
@@ -153,13 +153,12 @@ impl StringType {
     fn parse_as_literal(first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
         const TYPE: StringType = StringType::Literal;
 
-        let mut offset = 0;
+        let mut offset = 1;
 
         let mut value = std::string::String::new();
 
         let mut c = first;
         loop {
-            offset += 1;
             if TYPE.is_type_quote(&c) {
                 break; 
             }
@@ -169,7 +168,7 @@ impl StringType {
             }
 
             value.push(c);
-
+            offset += 1;
             c = if let Some(_c) = iter.get() {
                 if _c.is_linebreak() {
                     return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()), offset);

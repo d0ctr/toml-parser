@@ -2,9 +2,8 @@ use super::types;
 use super::types::TypeParser;
 use crate::{errors::{FormatError, ParserError}, reader::char_supplier::Supplier};
 
-
 pub fn parse_value(iter: &mut impl Supplier) -> Result<types::ParsedValue,ParserError> {
-    let mut offset = 0;
+    let mut offset = 1;
     let c: char;
 
     // skip whitespaces at the start
