@@ -1,49 +1,32 @@
 use crate::errors::{FormatError, ParserError, UnallowedCharacterReason::InTypeBoolean};
 use crate::reader::char_supplier::Supplier;
-use crate::{check_comment_or_whitespaces, CharExt as _};
+use crate::CharExt as _;
 
 pub struct Boolean;
 
 impl super::TypeParser<bool> for Boolean {
     fn parse(first: char, iter: &mut impl Supplier) -> Result<bool, crate::errors::ParserError> {
-        let mut offset = 0;
-        let mut is_comment = false;
-
         let mut value = String::from(first);
-        let check_comment = loop {
+        loop {
             let c = if let Some(_c) = iter.get() {
-                if _c.is_linebreak() {
-                    break false;
-                }
-                if _c.is_whitespace() {
-                    break true;
+                if _c.is_linebreak() || _c.is_whitespace() || _c.is_comment_start() {
+                    break;
                 }
                 _c
             } else {
-                break false;
+                break;
             };
-
-            offset += 1;
             
-            if c.is_comment_start() {
-                is_comment = true;
-                break true;
-            } else if !['t','r','u','e','f','a','l','s'].contains(&c) {
-                return ParserError::from(FormatError::UnallowedCharacter(c, InTypeBoolean), offset)
-            } else {
-                value.push(c);    
+            if !['t','r','u','e','f','a','l','s'].contains(&c) {
+                return ParserError::from(FormatError::UnallowedCharacter(c, InTypeBoolean))
             }
-        };
 
-        if check_comment {
-            if let Some(err) = check_comment_or_whitespaces(iter, is_comment) {
-                return ParserError::extend(err, offset)
-            }
-        }
+            value.push(c);
+        };
 
         match value.parse::<bool>() {
             Ok(v) => Ok(v),
-            Err(err) => ParserError::from(err, 0),
+            Err(err) => ParserError::from(err),
         }
     }
 }

@@ -1,10 +1,11 @@
 pub mod char_supplier {
     use utf8_chars::BufReadCharsExt as _;
 
-    use crate::{CharExt, NEWLINE_CRLF, NEWLINE_LF_STR};
+    use crate::{CharExt, NEWLINE_CR, NEWLINE_CRLF, NEWLINE_LF, NEWLINE_LF_STR};
 
     pub trait Supplier {
         fn get(&mut self) -> Option<char>;
+        fn last(&self) -> Option<char>;
     }
 
     pub struct Reader<R>
@@ -13,7 +14,6 @@ pub mod char_supplier {
     }
 
     impl<'a,R: std::io::Read> Reader<R> {
-
         pub fn new(inner: R) -> Reader<R> {
             Self {
                 inner: std::io::BufReader::new(inner)
@@ -21,36 +21,44 @@ pub mod char_supplier {
         }
 
         pub fn iter_with_debug(&mut self) -> DebuggingIterator<R> {
-            DebuggingIterator {
-                end: false,
-                inner: self.inner.chars_raw(),
-                last_line: std::string::String::new(),
-                line_end_buf: std::string::String::with_capacity(2)
-            }
+            DebuggingIterator::new(self.inner.chars_raw())
         }
 
         pub fn iter(&mut self) -> Iterator<R> {
-            Iterator {
-                end: false,
-                inner: self.inner.chars_raw(),
-                line_end_buf: std::string::String::with_capacity(2)
-            }
+            Iterator::new(self.inner.chars_raw())
         }
     }
 
-    pub struct DebuggingIterator<'a, R: std::io::Read> {
+    pub struct DebuggingIterator<'a, R: std::io::Read + ?Sized> {
         end: bool,
         inner: utf8_chars::CharsRaw<'a, std::io::BufReader<R>>,
         last_line: std::string::String,
-        line_end_buf: std::string::String
+        line_end_buf: std::string::String,
+        needle: usize,
+        last: Option<char>,
     }
 
     impl<R: std::io::Read> DebuggingIterator<'_,R> {
+        pub fn new<'a>(inner: utf8_chars::CharsRaw<'a, std::io::BufReader<R>>) -> DebuggingIterator<'a, R> {
+            DebuggingIterator {
+                inner,
+                end: false,
+                last_line: std::string::String::new(),
+                line_end_buf: std::string::String::with_capacity(2),
+                needle: 0,
+                last: None,
+            }
+        }
+
         pub fn get_last_line(&mut self) -> &str {
-            while !self.is_line_end() {
+            while !(self.is_line_end() || self.is_end()) {
                 self.next();
             }
             return &self.last_line;
+        }
+
+        pub fn get_needle(&self) -> usize {
+            self.needle
         }
 
         pub fn is_end(&self) -> bool {
@@ -73,31 +81,34 @@ pub mod char_supplier {
                 return None;
             }
             
-            return match self.inner.next() {
-                Some(next) => match next {
-                    Ok(c) => {
-                        if c.is_linebreak() && !self.is_line_end() {
-                            self.line_end_buf.push(c);
-                        } else {
-                            if self.is_line_end() {
-                                self.line_end_buf.clear();
-                                self.last_line.clear();
-                            }
-                            self.last_line.push(c);
-                        }
+            match self.inner.next() {
+                Some(Ok(c)) => {
+                    if c.is_linebreak() && !self.is_line_end() {
+                        self.line_end_buf.push(c);
 
-                        return Some(c);
-                    },
-                    Err(_) => {
-                        self.end = true;
-                        None
+                        if c == NEWLINE_CR {
+                            return self.next();
+                        }
+                    } else {
+                        if self.is_line_end() {
+                            self.last_line.clear();
+                            self.needle = 0;
+                            self.line_end_buf.clear();
+                        }
+                        
+                        self.last_line.push(c);
+                        self.needle += 1;
                     }
+
+                    self.last = Some(c);
                 },
-                None => {
+                Some(Err(_)) | None => {
                     self.end = true;
-                    None
+                    self.last = None;
                 }
             }
+
+            self.last
         }
     }
 
@@ -105,15 +116,29 @@ pub mod char_supplier {
         fn get(&mut self) -> Option<char> {
             self.next()
         }
+
+        fn last(&self) -> Option<char> {
+            self.last
+        }
     }
 
     pub struct Iterator<'a, R: std::io::Read> {
         end: bool,
         inner: utf8_chars::CharsRaw<'a, std::io::BufReader<R>>,
-        line_end_buf: std::string::String
+        line_end_buf: std::string::String,
+        last: Option<char>,
     }
     
     impl<R: std::io::Read> Iterator<'_,R> {
+        pub fn new<'a>(inner: utf8_chars::CharsRaw<'a, std::io::BufReader<R>>) -> Iterator<'a, R> {
+            Iterator {
+                inner,
+                end: false,
+                line_end_buf: std::string::String::with_capacity(2),
+                last: None,
+            }
+        }
+
         pub fn is_end(&self) -> bool {
             self.end
         }
@@ -134,7 +159,7 @@ pub mod char_supplier {
                 return None;
             }
             
-            return match self.inner.next() {
+            match self.inner.next() {
                 Some(next) => match next {
                     Ok(c) => {
                         if c.is_linebreak() && !self.is_line_end() {
@@ -145,24 +170,30 @@ pub mod char_supplier {
                             }
                         }
 
-                        return Some(c);
+                        self.last = Some(c);
                     },
                     Err(_) => {
                         self.end = true;
-                        None
+                        self.last = None;
                     }
                 },
                 None => {
                     self.end = true;
-                    None
+                    self.last = None;
                 }
             }
+
+            self.last
         }
     }
     
     impl<R: std::io::Read> Supplier for Iterator<'_,R> {
         fn get(&mut self) -> Option<char> {
             self.next()
+        }
+
+        fn last(&self) -> Option<char> {
+            self.last
         }
     }
 }

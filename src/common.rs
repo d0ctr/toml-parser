@@ -1,15 +1,13 @@
 use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, COMMENT_START, NEWLINE_CR, NEWLINE_LF, SPECIAL_CTRL_CHARACTERS, WHITESPACE_SPACE, WHITESPACE_TAB};
 
-pub fn skip_whitespaces(iter: &mut impl Supplier) -> Option<(usize,char)> {
-    let mut pos = 0;
+pub fn skip_whitespaces(iter: &mut impl Supplier, stop_at_linebreak: bool) -> Option<char> {
     while let Some(c) = iter.get() {
-        if c.is_linebreak() {
+        if stop_at_linebreak && c.is_linebreak() {
             return None;
         }
         if !c.is_whitespace() {
-            return Some((pos,c));
+            return Some(c);
         }
-        pos += 1
     }
 
     None
@@ -44,26 +42,18 @@ impl CharExt for char {
 }
 
 pub fn check_comment_or_whitespaces(iter: &mut impl Supplier, is_comment: bool) -> Option<ParserError> {
-    let mut offset = 0;
     let mut is_comment = is_comment;
-    let mut c: char;
-
-    if let Some((pos,last_c)) = crate::skip_whitespaces(iter) {
-        offset += pos + 1;
-        c = last_c;
-    } else {
-        return None
-    }
+    let mut c: char = crate::skip_whitespaces(iter, true)?;
 
     loop {
         if !is_comment && !c.is_comment_start() {
-            return ParserError::from::<(),FormatError>(FormatError::ExpectedCharacter(COMMENT_START), offset).err();
+            return ParserError::from::<(),FormatError>(FormatError::ExpectedCharacter(COMMENT_START)).err();
         } else if !is_comment {
             is_comment = true;
         }
         
         if c.is_control() && !c.is_special_control() {
-            return ParserError::from::<(),FormatError>(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InComment), offset).err();
+            return ParserError::from::<(),FormatError>(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InComment)).err();
         }
         
         if let Some(_c) = iter.get() {
@@ -72,7 +62,6 @@ pub fn check_comment_or_whitespaces(iter: &mut impl Supplier, is_comment: bool) 
             }
 
             c = _c;
-            offset += 1;
         } else {
             break;
         }

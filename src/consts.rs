@@ -1,18 +1,24 @@
-pub const COMMENT_START   : char      = '\u{0023}';
+pub const COMMENT_START      : char = '\u{0023}';
+   
+pub const WHITESPACE_TAB     : char = 0x0A as char;
+pub const WHITESPACE_SPACE   : char = 0x20 as char;
+   
+pub const ESCAPE_START       : char = '\\';
+pub const ESCAPE_START_STR   : &str = r"\";
+   
+pub const DOUBLE_QUOTE       : char = '"';
+pub const SINGLE_QUOTE       : char = '\'';
 
-pub const WHITESPACE_TAB  : char      = 0x0A as char;
-pub const WHITESPACE_SPACE: char      = 0x20 as char;
+pub const DOUBLE_QUOTE_STR   : &str = "\"";
+pub const SINGLE_QUOTE_STR   : &str = "'";
 
-pub const ESCAPE_START    : char      = '\\';
-pub const ESCAPE_START_STR: &str      = r"\";
+pub const DOUBLE_QUOTE_THRICE: &str = "\"\"\"";
+pub const SINGLE_QUOTE_THRICE: &str = "'''";
 
-pub const DOUBLE_QUOTE    : char      = '"';
-pub const SINGLE_QUOTE    : char      = '\'';
-
-pub const NEWLINE_LF      : char      = '\n';
-pub const NEWLINE_CR      : char      = '\r';
-pub const NEWLINE_CRLF    : &str      = "\r\n";
-pub const NEWLINE_LF_STR  : &str      = "\n";
+pub const NEWLINE_LF         : char = '\n';
+pub const NEWLINE_CR         : char = '\r';
+pub const NEWLINE_CRLF       : &str = "\r\n";
+pub const NEWLINE_LF_STR     : &str = "\n";
 
 const fn special_control_characters() -> [char; 32] {
     let mut arr: [char; 32] = ['\0'; 32];
@@ -50,3 +56,5 @@ pub const ESCAPE_SEQUENCE_TO_CHAR: [(&str,char); 7] = [
     ("\\\"", '\u{0022}'),
     (r"\\",  '\u{005C}')
 ];
+
+pub const LINE_ENDING_BACKSLASH: &str = "\\\n";

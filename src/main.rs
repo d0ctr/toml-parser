@@ -18,25 +18,29 @@ fn main() {
     let mut supplier = reader.iter_with_debug();
 
     while !supplier.is_end() {
-        let (mut offset, c) = match skip_whitespaces(&mut supplier) {
-            Some(v) => v,
+        let mut key = String::new();
+
+        match skip_whitespaces(&mut supplier, true) {
+            Some(c) => {
+                if c.is_comment_start() {
+                    if let Some(err) = check_comment_or_whitespaces(&mut supplier, true) {
+                        err.explain_with_debug(&mut supplier);
+                    }
+                    continue;
+                } else {
+                    key.push(c);
+                }
+            },
             None => continue,
         };
 
-        if c.is_comment_start() {
-            if let Some(err) = check_comment_or_whitespaces(&mut supplier, true) {
-                err.explain(supplier.get_last_line());
-            }
-            continue;
-        }
-
-        let mut key = String::from(c);
+        // reading key
         if loop {
             if let Some(c) = supplier.get() {
-                offset += 1;
                 if c == '=' {
                     break false;
                 }
+
                 key.push(c);
             } else {
                 break true;
@@ -47,15 +51,15 @@ fn main() {
 
         match parse_value(&mut supplier) {
             Ok(wrapped_value) => match wrapped_value {
-                ParsedValue::Boolean(value) => { println!("{} = {}\n\t{}", key.trim(), value, supplier.get_last_line()); },
+                ParsedValue::Boolean(value) => { println!("{} = {}", key.trim(), value); },
                 ParsedValue::Number(num) => match num {
-                    NumberType::Float(value) => { println!("{} = {:.1}\n\t{}", key.trim(), value, supplier.get_last_line()); },
-                    NumberType::Integer(value) => { println!("{} = {}\n\t{}", key.trim(), value, supplier.get_last_line()); },
+                    NumberType::Float(value) => { println!("{} = {:.1}", key.trim(), value); },
+                    NumberType::Integer(value) => { println!("{} = {}", key.trim(), value); },
                 },
-                ParsedValue::String(value) => { println!("{} = {}\n\t{}", key.trim(), value, supplier.get_last_line()); },
+                ParsedValue::String(value) => { println!("{} = {}", key.trim(), value); },
             },
-            Err(err) => if let Err(_err) = ParserError::extend::<()>(err, offset) {
-                _err.explain(supplier.get_last_line());
+            Err(err) => {
+                err.explain_with_debug(&mut supplier);
             }
         }
     }

@@ -8,6 +8,9 @@ fail = false smth
 float = 0.1
 float = .1
 float = 0.
+fail = .0.
+fail = ..0
+fail = 0..
 float = -0.
 float = 0. # smth
 float = 0.#smth
@@ -23,9 +26,9 @@ fail = 0 smth
 
 basic = "foo"
 fail = "foo
-# fail = ""foo"
+fail = ""foo"
 basic = "foo\tbar"
-# fail = "foo\0bar"
+fail = "foo\0bar"
 basic = "foo\u2318"
 basic = "foo #smth"
 basic = "foo" # smth
@@ -43,3 +46,11 @@ literal = 'foo' # smth
 literal = 'foo❤'#smth
 fail = 'foo' smth
 
+basic_multiline = """
+Hello"""
+basic_multiline = """one\
+                     line"""
+
+literal_string = '''
+two \
+    lines'''
