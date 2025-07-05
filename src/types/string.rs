@@ -100,11 +100,54 @@ impl StringType {
     }
 
     fn parse(self, first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
-        match self {
-            Self::Basic => Self::parse_as_basic(first, iter),
-            Self::Literal => Self::parse_as_literal(first, iter),
-            _ => ParserError::from(FormatError::EmptyValue, 0)
+        let mut offset = 1;
+
+        let mut value = std::string::String::new();
+
+        let mut c = first;
+
+        loop {
+            if self.is_type_quote(&c) {
+                break; 
+            }
+
+            match self {
+                Self::Basic => {
+                    if c.is_special_control() {
+                        return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeBasicString), offset);
+                    }
+
+                    if c == ESCAPE_START {
+                        match read_escape_seq(iter) {
+                            Ok((replacement, pos)) => {
+                                c = replacement;
+                                offset += pos;
+                            },
+                            Err(err) => return ParserError::from(err, offset)
+                        }
+                    }
+                },
+                Self::Literal => {
+                    if c.is_control() && c != WHITESPACE_TAB {
+                        return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeLiteralString), offset);
+                    }
+                },
+                _ => return ParserError::from(FormatError::EmptyValue, 0)
+            }
+
+            value.push(c);
+            offset += 1;
+            c = if let Some(_c) = iter.get() {
+                if _c.is_linebreak() {
+                    return ParserError::from(FormatError::ExpectedCharacter(self.quote()), offset);
+                }
+                _c
+            } else {
+                return ParserError::from(FormatError::ExpectedCharacter(self.quote()), offset);
+            }
         }
+
+        Ok((value, offset))
     }
 
     fn parse_as_basic(first: char, iter: &mut impl Supplier) -> Result<(std::string::String, usize), crate::errors::ParserError> {
@@ -164,7 +207,7 @@ impl StringType {
             }
 
             if c.is_control() && c != WHITESPACE_TAB {
-                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeBasicString), offset);
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeLiteralString), offset);
             }
 
             value.push(c);

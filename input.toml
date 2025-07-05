@@ -28,8 +28,8 @@ basic = "foo\tbar"
 # fail = "foo\0bar"
 basic = "foo\u2318"
 basic = "foo #smth"
-fail = "foo" # smth
-fail = "foo❤"#smth
+basic = "foo" # smth
+basic = "foo❤"#smth
 fail = "foo" smth
 
 literal = 'foo'
@@ -39,7 +39,7 @@ literal = 'foo\tbar'
 literal = 'foo\0bar'
 literal = 'foo\u2318'
 literal = '"foo" #smth'
-fail = 'foo' # smth
-fail = 'foo❤'#smth
+literal = 'foo' # smth
+literal = 'foo❤'#smth
 fail = 'foo' smth
 

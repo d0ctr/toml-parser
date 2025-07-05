@@ -15,7 +15,7 @@ use crate::{errors::ParserError, parser::parse_value, reader::char_supplier::{Re
 fn main() {
     let f = std::fs::File::open("input.toml").unwrap();
     let mut reader = Reader::new(f);
-    let mut supplier = reader.iter();
+    let mut supplier = reader.iter_with_debug();
 
     while !supplier.is_end() {
         let (mut offset, c) = match skip_whitespaces(&mut supplier) {
