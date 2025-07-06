@@ -12,6 +12,7 @@ pub enum UnallowedCharacterReason {
     InTypeBoolean,
     InTypeBasicString,
     InTypeMultilineBasicString,
+    InTypeMultilineLiteralString,
     InTypeLiteralString,
     InUnicodeSequence,
 }
@@ -38,6 +39,7 @@ impl Display for FormatError {
                     UnallowedCharacterReason::InTypeBasicString => "in a basic string",
                     UnallowedCharacterReason::InTypeMultilineBasicString => "in a multi-line basic string",
                     UnallowedCharacterReason::InTypeLiteralString => "in a literal string",
+                    UnallowedCharacterReason::InTypeMultilineLiteralString => "in a multi-line literal string",
                     UnallowedCharacterReason::InUnicodeSequence => "in a unicode escape sequence",
                 };
                 write!(f, "unallowed character `{c}` {reason}")

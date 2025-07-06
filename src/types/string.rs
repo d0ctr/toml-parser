@@ -121,7 +121,6 @@ impl StringType {
             Self::Literal => StringType::parse_as_literal(first, iter),
             Self::BasicMultiline => StringType::parse_as_basic_multiline(first, iter),
             Self::LiteralMultiline => StringType::parse_as_literal_multiline(first, iter),
-            _ => ParserError::from(FormatError::EmptyValue)
         }
     }
 
@@ -204,7 +203,7 @@ impl StringType {
             if let Some(_c) = iter.get() {
                 _c
             } else {
-                return ParserError::from(FormatError::UnexpectedEnd);
+                return ParserError::from(FormatError::ExpectedSequence(TYPE.quotes().to_string()));
             }
         } else {
             first
@@ -225,7 +224,7 @@ impl StringType {
             }
 
             if c.is_special_control() && ![NEWLINE_CR, NEWLINE_LF, WHITESPACE_TAB].contains(&c) {
-                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeBasicString));
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeMultilineBasicString));
             }
 
             if c == ESCAPE_START {
@@ -233,7 +232,10 @@ impl StringType {
                     Ok(replacement) => {
                         c = replacement;
                     },
-                    Err(err) => return ParserError::from(err)
+                    Err(err) => match err {
+                        FormatError::UnexpectedEnd => return ParserError::from(FormatError::ExpectedSequence(TYPE.quotes().to_string())),
+                        _ => return ParserError::from(err),
+                    }
                 }
             }
 
@@ -244,7 +246,7 @@ impl StringType {
             c = if let Some(_c) = iter.get() {
                 _c
             } else {
-                return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()));
+                return ParserError::from(FormatError::ExpectedSequence(TYPE.quotes().to_string()));
             }
         }
 
@@ -261,7 +263,7 @@ impl StringType {
             if let Some(_c) = iter.get() {
                 _c
             } else {
-                return ParserError::from(FormatError::UnexpectedEnd);
+                return ParserError::from(FormatError::ExpectedSequence(TYPE.quotes().to_string()));
             }
         } else {
             first
@@ -281,8 +283,8 @@ impl StringType {
                 }
             }
 
-            if c.is_special_control() && ![NEWLINE_CR, NEWLINE_LF, WHITESPACE_TAB].contains(&c) {
-                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeBasicString));
+            if c.is_control() && ![NEWLINE_CR, NEWLINE_LF, WHITESPACE_TAB].contains(&c) {
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeMultilineLiteralString));
             }
 
             if quotes == 0b1 {
@@ -292,7 +294,7 @@ impl StringType {
             c = if let Some(_c) = iter.get() {
                 _c
             } else {
-                return ParserError::from(FormatError::ExpectedCharacter(TYPE.quote()));
+                return ParserError::from(FormatError::ExpectedSequence(TYPE.quotes().to_string()));
             }
         }
 

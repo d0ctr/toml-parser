@@ -1,7 +1,7 @@
 pub mod char_supplier {
     use utf8_chars::BufReadCharsExt as _;
 
-    use crate::{CharExt, NEWLINE_CR, NEWLINE_CRLF, NEWLINE_LF, NEWLINE_LF_STR};
+    use crate::{CharExt, NEWLINE_CR, NEWLINE_CRLF, NEWLINE_LF_STR};
 
     pub trait Supplier {
         fn get(&mut self) -> Option<char>;
@@ -160,24 +160,20 @@ pub mod char_supplier {
             }
             
             match self.inner.next() {
-                Some(next) => match next {
-                    Ok(c) => {
-                        if c.is_linebreak() && !self.is_line_end() {
-                            self.line_end_buf.push(c);
-                        } else {
-                            if self.is_line_end() {
-                                self.line_end_buf.clear();
-                            }
-                        }
+                Some(Ok(c)) => {
+                    if c.is_linebreak() && !self.is_line_end() {
+                        self.line_end_buf.push(c);
 
-                        self.last = Some(c);
-                    },
-                    Err(_) => {
-                        self.end = true;
-                        self.last = None;
+                        if c == NEWLINE_CR {
+                            return self.next();
+                        }
+                    } else if self.is_line_end() {
+                        self.line_end_buf.clear();
                     }
+
+                    self.last = Some(c);
                 },
-                None => {
+                Some(Err(_)) | None => {
                     self.end = true;
                     self.last = None;
                 }

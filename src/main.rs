@@ -2,15 +2,13 @@ mod errors;
 mod reader;
 mod common;
 mod types;
-mod macros;
 mod consts;
-mod parser;
+mod parsers;
 
 pub use consts::*;
 pub use common::*;
-pub use common::CharExt;
 
-use crate::{errors::ParserError, parser::parse_value, reader::char_supplier::{Reader, Supplier}, types::{NumberType, ParsedValue}};
+use crate::{parsers::ValueParser, reader::char_supplier::{Reader, Supplier}, types::{NumberType, Value}};
 
 fn main() {
     let f = std::fs::File::open("input.toml").unwrap();
@@ -49,14 +47,14 @@ fn main() {
             continue;
         }
 
-        match parse_value(&mut supplier) {
+        match ValueParser::parse(&mut supplier) {
             Ok(wrapped_value) => match wrapped_value {
-                ParsedValue::Boolean(value) => { println!("{} = {}", key.trim(), value); },
-                ParsedValue::Number(num) => match num {
+                Value::Boolean(value) => { println!("{} = {}", key.trim(), value); },
+                Value::Number(num) => match num {
                     NumberType::Float(value) => { println!("{} = {:.1}", key.trim(), value); },
                     NumberType::Integer(value) => { println!("{} = {}", key.trim(), value); },
                 },
-                ParsedValue::String(value) => { println!("{} = {}", key.trim(), value); },
+                Value::String(value) => { println!("{} = {}", key.trim(), value); },
             },
             Err(err) => {
                 err.explain_with_debug(&mut supplier);
