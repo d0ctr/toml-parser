@@ -5,10 +5,10 @@ use crate::CharExt as _;
 pub struct Boolean;
 
 impl super::TypeParser<bool> for Boolean {
-    fn parse(first: char, iter: &mut impl Supplier) -> Result<bool, crate::errors::ParserError> {
+    fn parse(first: char, input: &mut impl Supplier) -> Result<bool, crate::errors::ParserError> {
         let mut value = String::from(first);
         loop {
-            let c = if let Some(_c) = iter.get() {
+            let c = if let Some(_c) = input.get() {
                 if _c.is_linebreak() || _c.is_whitespace() || _c.is_comment_start() {
                     break;
                 }

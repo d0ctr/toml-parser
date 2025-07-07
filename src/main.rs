@@ -55,6 +55,7 @@ fn main() {
                     NumberType::Integer(value) => { println!("{} = {}", key.trim(), value); },
                 },
                 Value::String(value) => { println!("{} = {}", key.trim(), value); },
+                Value::DateTime(value) => println!("{} = {}", key, value.to_string())
             },
             Err(err) => {
                 err.explain_with_debug(&mut supplier);

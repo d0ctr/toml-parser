@@ -1,4 +1,4 @@
-use std::fmt::{Display, Debug};
+use std::{fmt::{Debug, Display}, num::ParseIntError};
 use core::error::Error;
 
 use crate::reader::char_supplier::DebuggingIterator;
@@ -15,6 +15,9 @@ pub enum UnallowedCharacterReason {
     InTypeMultilineLiteralString,
     InTypeLiteralString,
     InUnicodeSequence,
+    InTypeDate,
+    InTypeTime,
+    InTypeDateTime,
 }
 
 #[derive(Debug)]
@@ -24,7 +27,7 @@ pub enum FormatError {
     ExpectedSequence(std::string::String),
     UnknownEscapeSequence,
     EmptyValue,
-    UnexpectedEnd
+    UnexpectedEnd,
 }
 
 impl Display for FormatError {
@@ -41,8 +44,11 @@ impl Display for FormatError {
                     UnallowedCharacterReason::InTypeLiteralString => "in a literal string",
                     UnallowedCharacterReason::InTypeMultilineLiteralString => "in a multi-line literal string",
                     UnallowedCharacterReason::InUnicodeSequence => "in a unicode escape sequence",
+                    UnallowedCharacterReason::InTypeDate => "in a date value",
+                    UnallowedCharacterReason::InTypeTime => "in a time value",
+                    UnallowedCharacterReason::InTypeDateTime => "in a date-time value",
                 };
-                write!(f, "unallowed character `{c}` {reason}")
+                write!(f, "unexpected character `{c}` {reason}")
             },
             FormatError::ExpectedCharacter(c) => write!(f, "expected character `{c}`"),
             FormatError::UnknownEscapeSequence => write!(f, "unknown escape sequence"),
@@ -80,7 +86,7 @@ impl ParserError {
 
         println!("{}", line.trim_end());
 
-        let mut underline = vec![' '; needle - 1];
+        let mut underline = vec![' '; needle.1 - 1];
         underline.push('^');
         let underline = String::from_iter(underline.iter());
         println!("{}", underline);
@@ -101,3 +107,9 @@ impl Display for ParserError {
 }
 
 impl Error for ParserError {}
+
+impl From<std::num::ParseIntError> for ParserError {
+    fn from(value: std::num::ParseIntError) -> Self {
+        ParserError::from::<(),ParseIntError>(value).unwrap_err()
+    }
+}

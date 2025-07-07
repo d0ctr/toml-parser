@@ -1,7 +1,7 @@
 use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, COMMENT_START, NEWLINE_CR, NEWLINE_LF, SPECIAL_CTRL_CHARACTERS, WHITESPACE_SPACE, WHITESPACE_TAB};
 
-pub fn skip_whitespaces(iter: &mut impl Supplier, stop_at_linebreak: bool) -> Option<char> {
-    while let Some(c) = iter.get() {
+pub fn skip_whitespaces(input: &mut impl Supplier, stop_at_linebreak: bool) -> Option<char> {
+    while let Some(c) = input.get() {
         if stop_at_linebreak && c.is_linebreak() {
             return None;
         }
@@ -41,9 +41,9 @@ impl CharExt for char {
     }
 }
 
-pub fn check_comment_or_whitespaces(iter: &mut impl Supplier, is_comment: bool) -> Option<ParserError> {
+pub fn check_comment_or_whitespaces(input: &mut impl Supplier, is_comment: bool) -> Option<ParserError> {
     let mut is_comment = is_comment;
-    let mut c: char = crate::skip_whitespaces(iter, true)?;
+    let mut c: char = crate::skip_whitespaces(input, true)?;
 
     loop {
         if !is_comment && !c.is_comment_start() {
@@ -56,7 +56,7 @@ pub fn check_comment_or_whitespaces(iter: &mut impl Supplier, is_comment: bool) 
             return ParserError::from::<(),FormatError>(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InComment)).err();
         }
         
-        if let Some(_c) = iter.get() {
+        if let Some(_c) = input.get() {
             if _c.is_linebreak() {
                 break;
             }
@@ -68,4 +68,33 @@ pub fn check_comment_or_whitespaces(iter: &mut impl Supplier, is_comment: bool) 
     }
 
     None
+}
+
+pub struct Counter {
+    value: u8,
+    max: u8
+}
+
+impl Counter {
+    pub fn new(max: u8) -> Self {
+        Counter {
+            value: 0b0,
+            max
+        }
+    }
+
+    pub fn inc(mut self) -> Self {
+        if !self.is_capped() {
+            self.value += 0b1;
+        }
+        self
+    }
+
+    pub fn is_capped(&self) -> bool {
+        self.value >= self.max
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.value == 0b0
+    }
 }

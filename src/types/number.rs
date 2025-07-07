@@ -1,15 +1,31 @@
 use crate::errors::{FormatError, ParserError, UnallowedCharacterReason};
+use crate::reader::char_supplier::ToSupplier;
 use crate::{reader::char_supplier::Supplier, types::NumberType, CharExt as _};
 
 pub struct Number;
 
-impl super::TypeParser<NumberType> for Number {
-    fn parse(first: char, iter: &mut impl Supplier) -> Result<NumberType, crate::errors::ParserError> {
-        let mut dotted = first == '.';
+impl Number {
+    pub fn parse_with_buf(buf: &mut impl Supplier, input: &mut impl Supplier) -> Result<NumberType, crate::errors::ParserError> {
+        let mut dotted = false;
+        let mut signed = false;
 
-        let mut value = String::from(first);
+        let mut value = String::new();
+        let mut from_buf = true;
+
         loop {
-            let c = if let Some(_c) = iter.get() {
+            let next = if from_buf {
+                let _next = buf.get();
+                if _next.is_none() {
+                    from_buf = false;
+                    input.get()
+                } else {
+                    _next
+                }
+            } else {
+                input.get()
+            };
+
+            let c = if let Some(_c) = next {
                 if _c.is_linebreak() || _c.is_whitespace() || _c.is_comment_start() {
                     break;
                 }
@@ -20,12 +36,13 @@ impl super::TypeParser<NumberType> for Number {
 
             if c == '.' && !dotted {
                 dotted = true;
-            } else if !c.is_digit(10) {
+            } else if !c.is_digit(10) && !(['+', '-'].contains(&c) && !signed) {
                 return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InTypeNumber));
             }
-    
+            
+            signed = true;
             value.push(c);
-        };
+        }
 
         if dotted {
             return match value.parse::<f64>() {
@@ -38,5 +55,14 @@ impl super::TypeParser<NumberType> for Number {
                 Err(err) => ParserError::from(err),
             }
         }
+    }
+}
+
+impl super::TypeParser<NumberType> for Number {
+    fn parse(first: char, input: &mut impl Supplier) -> Result<NumberType, crate::errors::ParserError> {
+        let first_as_string = first.to_string();
+        let mut buf = ToSupplier::from_string(&first_as_string);
+
+        return Self::parse_with_buf(&mut buf, input)
     }
 }

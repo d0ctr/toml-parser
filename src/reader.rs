@@ -6,10 +6,10 @@ pub mod char_supplier {
     pub trait Supplier {
         fn get(&mut self) -> Option<char>;
         fn last(&self) -> Option<char>;
+        fn as_iter(&mut self) -> &mut impl std::iter::Iterator<Item=char>;
     }
 
-    pub struct Reader<R>
-    where R: std::io::Read {
+    pub struct Reader<R: std::io::Read> {
         inner: std::io::BufReader<R>,
     }
 
@@ -34,7 +34,7 @@ pub mod char_supplier {
         inner: utf8_chars::CharsRaw<'a, std::io::BufReader<R>>,
         last_line: std::string::String,
         line_end_buf: std::string::String,
-        needle: usize,
+        needle: (usize,usize),
         last: Option<char>,
     }
 
@@ -45,7 +45,7 @@ pub mod char_supplier {
                 end: false,
                 last_line: std::string::String::new(),
                 line_end_buf: std::string::String::with_capacity(2),
-                needle: 0,
+                needle: (0,0),
                 last: None,
             }
         }
@@ -57,7 +57,7 @@ pub mod char_supplier {
             return &self.last_line;
         }
 
-        pub fn get_needle(&self) -> usize {
+        pub fn get_needle(&self) -> (usize,usize) {
             self.needle
         }
 
@@ -70,6 +70,13 @@ pub mod char_supplier {
                 NEWLINE_CRLF | NEWLINE_LF_STR => true,
                 _ => false,
             }
+        }
+
+        fn new_line(&mut self) {
+            self.last_line.clear();
+            self.needle.1 = 0;
+            self.needle.0 += 1;
+            self.line_end_buf.clear();
         }
     }
 
@@ -91,13 +98,11 @@ pub mod char_supplier {
                         }
                     } else {
                         if self.is_line_end() {
-                            self.last_line.clear();
-                            self.needle = 0;
-                            self.line_end_buf.clear();
+                            self.new_line();
                         }
                         
                         self.last_line.push(c);
-                        self.needle += 1;
+                        self.needle.1 += 1;
                     }
 
                     self.last = Some(c);
@@ -119,6 +124,10 @@ pub mod char_supplier {
 
         fn last(&self) -> Option<char> {
             self.last
+        }
+        
+        fn as_iter(&mut self) -> &mut impl std::iter::Iterator<Item=char> {
+            self
         }
     }
 
@@ -190,6 +199,40 @@ pub mod char_supplier {
 
         fn last(&self) -> Option<char> {
             self.last
+        }
+        
+        fn as_iter(&mut self) -> &mut impl std::iter::Iterator<Item=char> {
+            self
+        }
+    }
+
+    pub struct ToSupplier<'a> {
+        iter: std::str::Chars<'a>,
+        last: Option<char>
+    }
+
+    impl ToSupplier<'_> {
+        pub fn from_string(string: &std::string::String) -> impl Supplier {
+            ToSupplier {
+                iter: string.chars(),
+                last: None
+            }
+        }
+    }
+
+    impl Supplier for ToSupplier<'_> {
+        fn get(&mut self) -> Option<char> {
+            self.last = self.iter.next();
+
+            return self.last
+        }
+    
+        fn last(&self) -> Option<char> {
+            self.last
+        }
+    
+        fn as_iter(&mut self) -> &mut impl std::iter::Iterator<Item=char> {
+            &mut self.iter
         }
     }
 }
