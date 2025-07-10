@@ -1,4 +1,4 @@
-use std::{fmt::{Debug, Display}, num::ParseIntError};
+use std::fmt::{Debug, Display};
 use core::error::Error;
 
 use crate::reader::char_supplier::DebuggingIterator;
@@ -28,6 +28,7 @@ pub enum FormatError {
     UnknownEscapeSequence,
     EmptyValue,
     UnexpectedEnd,
+    Unknown(std::string::String)
 }
 
 impl Display for FormatError {
@@ -55,6 +56,7 @@ impl Display for FormatError {
             FormatError::EmptyValue => write!(f, "empty value"),
             FormatError::UnexpectedEnd => write!(f, "unexpected end of file"),
             FormatError::ExpectedSequence(seq) => write!(f, "expected `{seq}`"),
+            FormatError::Unknown(seq) => write!(f, "unknown error: {seq}"),
         }
     }
 }
@@ -110,6 +112,12 @@ impl Error for ParserError {}
 
 impl From<std::num::ParseIntError> for ParserError {
     fn from(value: std::num::ParseIntError) -> Self {
-        ParserError::from::<(),ParseIntError>(value).unwrap_err()
+        ParserError::from::<(),std::num::ParseIntError>(value).unwrap_err()
+    }
+}
+
+impl From<std::num::ParseFloatError> for ParserError {
+    fn from(value: std::num::ParseFloatError) -> Self {
+        ParserError::from::<(),std::num::ParseFloatError>(value).unwrap_err()
     }
 }

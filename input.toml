@@ -54,3 +54,10 @@ basic_multiline = """one\
 literal_string = '''
 two \
     lines'''
+
+date = 2025-07-09
+time = 09:41:00
+datetime = 2025-07-09T09:41:00.1234
+datetime = 2025-07-09T09:41:00.1234Z
+datetime = 2025-07-09 09:41:00.1234Z
+datetime = 2025-07-09T09:41:00.1234+02:00
