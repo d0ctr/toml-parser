@@ -18,6 +18,7 @@ pub enum UnallowedCharacterReason {
     InTypeDate,
     InTypeTime,
     InTypeDateTime,
+    InKey,
 }
 
 #[derive(Debug)]
@@ -48,6 +49,7 @@ impl Display for FormatError {
                     UnallowedCharacterReason::InTypeDate => "in a date value",
                     UnallowedCharacterReason::InTypeTime => "in a time value",
                     UnallowedCharacterReason::InTypeDateTime => "in a date-time value",
+                    UnallowedCharacterReason::InKey => "in key",
                 };
                 write!(f, "unexpected character `{c}` {reason}")
             },

@@ -1,3 +1,4 @@
+pub use super::parsers::TypeParser;
 mod common;
 
 mod boolean;
@@ -5,13 +6,15 @@ mod string;
 mod number;
 mod datetime;
 
+use std::collections::HashMap;
+
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+
 pub use number::Number;
 pub use boolean::Boolean;
-pub use string::String;
+pub use string::{String, StringType};
 pub use datetime::DateTime;
 
-use crate::reader::char_supplier::Supplier;
 
 #[derive(Debug)]
 pub enum NumberType {
@@ -45,26 +48,87 @@ impl ToString for DateTimeType {
     }
 }
 
+impl Clone for DateTimeType {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Date(arg0) => Self::Date(arg0.clone()),
+            Self::Time(arg0) => Self::Time(arg0.clone()),
+            Self::DateTime(arg0) => Self::DateTime(arg0.clone()),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Value {
     Number(NumberType),
     Boolean(bool),
     String(std::string::String),
-    DateTime(DateTimeType)
+    DateTime(DateTimeType),
+    Nested(HashMap<Key, Value>)
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> std::string::String {
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::String(v) => v.to_string(),
-            Self::Boolean(v) => v.to_string(),
-            Self::Number(v) => v.to_string(),
-            Self::DateTime(v) => v.to_string()
+            Self::String(v) => write!(f, "{}", v),
+            Self::Boolean(v) =>  write!(f, "{}", v.to_string()),
+            Self::Number(v) =>  write!(f, "{}", v.to_string()),
+            Self::DateTime(v) =>  write!(f, "{}", v.to_string()),
+            Self::Nested(v) =>  write!(f, "{:?}", v),
         }
     }
 }
 
-// parse should assume that iterator will read indefinetely, so line breaks should be handled accordingly
-pub trait TypeParser<T> {
-    fn parse(first: char, input: &mut impl Supplier) -> Result<T, crate::errors::ParserError>;
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Number(NumberType::Float(arg0)) => Self::Number(NumberType::Float(*arg0)),
+            Self::Number(NumberType::Integer(arg0)) => Self::Number(NumberType::Integer(*arg0)),
+            Self::Boolean(arg0) => Self::Boolean(arg0.clone()),
+            Self::String(arg0) => Self::String(arg0.clone()),
+            Self::DateTime(arg0) => Self::DateTime(arg0.clone()),
+            Self::Nested(arg0) => Self::Nested(arg0.clone()),
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct Key {
+    name: std::string::String
+}
+
+impl Key {
+    pub fn new(name: std::string::String) -> Self {
+        Key {
+            name
+        }
+    }
+}
+
+impl std::fmt::Display for Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl Clone for Key {
+    fn clone(&self) -> Self {
+        Self { name: self.name.clone() }
+    }
+}
+
+#[derive(Debug)]
+pub struct Entry {
+    key: Key,
+    value: Option<Value>,
+}
+
+impl std::fmt::Display for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.value {
+            Some(v) => write!(f, "{}={:?}", self.key, v),
+            None => write!(f, "{}=None", self.key),
+        }
+    }
 }

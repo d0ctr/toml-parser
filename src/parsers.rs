@@ -1,8 +1,13 @@
-use std::any::{Any, TypeId};
+use std::any::Any as _;
 
 use super::types;
-use super::types::TypeParser;
-use crate::{check_comment_or_whitespaces, errors::{FormatError, ParserError}, reader::char_supplier::{Supplier, ToSupplier}, types::{DateTimeType, NumberType}, CharExt};
+use crate::{check_comment_or_whitespaces, errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::{Supplier, ToSupplier}, types::StringType, CharExt};
+
+
+// parse should assume that iterator will read indefinetely, so line breaks should be handled accordingly
+pub trait TypeParser<T> {
+    fn parse(first: char, input: &mut impl Supplier) -> Result<T, crate::errors::ParserError>;
+}
 
 pub struct ValueParser;
 
@@ -35,7 +40,6 @@ impl ValueParser {
                     } else if _c == '.' {
                         buf.push(_c);
                         break Some(types::Number.type_id());
-                        buf.push(_c);
                     } else {
                         break Some(types::Number.type_id());
                     }
@@ -74,5 +78,101 @@ impl ValueParser {
         }
 
         result
+    }
+}
+
+pub struct KeyParser;
+
+impl KeyParser {
+    fn parse_segment(first: Option<char>, input: &mut impl Supplier) -> Result<(types::Key,bool),ParserError> {
+        let mut c = if let Some(_c) = first {
+            _c
+        } else {
+            if let Some(_c) = crate::skip_whitespaces(input, false) {
+                _c
+            } else {
+                return ParserError::from(FormatError::EmptyValue)
+            }
+        };
+        let mut key = std::string::String::new();
+        
+        if c == '"' || c == '\'' {
+            key = if c == '"' {
+                if let Some(_c) = input.get() {
+                    StringType::Basic.parse(_c, input)?
+                } else {
+                    return ParserError::from(FormatError::UnexpectedEnd);
+                }
+            } else {
+                if let Some(_c) = input.get() {
+                    StringType::Literal.parse(_c, input)?
+                } else {
+                    return ParserError::from(FormatError::UnexpectedEnd);
+                }
+            };
+        } else {
+            loop {
+                if c.is_ascii_alphanumeric() || ['_', '-'].contains(&c) {
+                    key.push(c);
+                } else if c == '.' || c == '=' {
+                    if key.len() == 0 {
+                        return ParserError::from(FormatError::EmptyValue);
+                    }
+                    return Ok((types::Key::new(key), c == '='));
+                } else if c.is_whitespace() && !c.is_linebreak() {
+                    break;
+                } else {
+                    return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InKey));
+                }
+                
+                c = if let Some(_c) = input.get() {
+                    _c
+                } else {
+                    return ParserError::from(FormatError::UnexpectedEnd);
+                };
+            }
+        }
+
+        if let Some(c) = crate::skip_whitespaces(input, true) {
+            if c == '=' || c == '.' {
+                return Ok((types::Key::new(key), c == '='));
+            } else {
+                return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InKey))
+            }
+        } else {
+            return ParserError::from(FormatError::EmptyValue)
+        };
+    }
+
+    pub fn parse_path(input: &mut impl Supplier) -> Result<std::vec::Vec<types::Key>,ParserError> {
+        let mut path: Vec<types::Key> = std::vec::Vec::new();
+
+        let mut c= loop {
+            if let Some(_c) = crate::skip_whitespaces(input, false) {
+                if _c.is_comment_start() {
+                    if let Some(err) = check_comment_or_whitespaces(input, true) {
+                        return ParserError::extend(err);
+                    }
+                    continue;
+                }
+                break Some(_c);
+            } else {
+                return ParserError::from(FormatError::EmptyValue)
+            };
+        };
+
+        loop {
+            let (key, is_done) = Self::parse_segment(c, input)?;
+            if c.is_some() {
+                c = None;
+            }
+
+            path.push(key);
+            if is_done {
+                break;
+            }
+        }
+
+        Ok(path)
     }
 }

@@ -1,6 +1,6 @@
 use chrono::{FixedOffset, NaiveDate, NaiveTime};
 
-use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::Supplier, types::DateTimeType, CharExt, Counter};
+use crate::{errors::{FormatError, ParserError, UnallowedCharacterReason}, reader::char_supplier::{Supplier, ToSupplier}, types::DateTimeType, CharExt};
 
 pub struct DateTime;
 
@@ -166,7 +166,7 @@ impl DateTime {
                     }
 
                     let frac = _buf.parse::<f32>()?;
-                    sec += (frac * 1_000_000.0) as u32;
+                    sec += (frac * 1_000_000_000.0) as u32;
                 }
 
                 sec
@@ -225,7 +225,10 @@ impl DateTime {
 
 impl super::TypeParser<DateTimeType> for DateTime {
     fn parse(first: char, input: &mut impl Supplier) -> Result<DateTimeType, crate::errors::ParserError> {
-        todo!()
+        let first_as_string = first.to_string();
+        let mut buf = ToSupplier::from_string(&first_as_string);
+
+        return Self::parse_with_buf(&mut buf, input)
     }
 
 }

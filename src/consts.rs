@@ -58,3 +58,36 @@ pub const ESCAPE_SEQUENCE_TO_CHAR: [(&str,char); 7] = [
 ];
 
 pub const LINE_ENDING_BACKSLASH: &str = "\\\n";
+
+const fn bare_keys_chars() -> [char; 62] {
+    let mut arr: [char; 62] = ['\0'; 62];
+    let mut i = 0;
+
+    let mut c = 'a' as u8;
+    while c != 'z' as u8 {
+        arr[i] = c as char;
+        i += 1;
+        c += 1;
+    }
+
+    let mut c = 'A' as u8;
+    while c != 'Z' as u8 {
+        arr[i] = c as char;
+        i += 1;
+        c += 1;
+    }
+
+    let mut c = '0' as u8;
+    while c != '9' as u8 {
+        arr[i] = c as char;
+        i += 1;
+        c += 1;
+    }
+
+    arr[i] = '_';
+    arr[i + 1] = '-';
+
+    arr
+}
+
+pub const BARE_KEY_CHARS: [char; 62] = bare_keys_chars();

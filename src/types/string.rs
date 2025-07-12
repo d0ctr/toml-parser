@@ -1,5 +1,5 @@
 use crate::{skip_whitespaces, DOUBLE_QUOTE_STR, DOUBLE_QUOTE_THRICE, LINE_ENDING_BACKSLASH, NEWLINE_CR, NEWLINE_LF, SINGLE_QUOTE_STR, SINGLE_QUOTE_THRICE, UNICODE_HIGH_ESCAPE_START, UNICODE_LOW_ESCAPE_START, WHITESPACE_TAB};
-use crate::{reader::char_supplier::Supplier, types::TypeParser, CharExt, DOUBLE_QUOTE, ESCAPE_START, SINGLE_QUOTE};
+use crate::{reader::char_supplier::Supplier, CharExt, DOUBLE_QUOTE, ESCAPE_START, SINGLE_QUOTE};
 use crate::errors::{FormatError, ParserError, UnallowedCharacterReason};
 use super::common::to_escaped_char;
 
@@ -79,10 +79,10 @@ fn read_escape_seq(input: &mut impl Supplier, is_multiline: bool) -> Result<char
     Err(FormatError::UnknownEscapeSequence)
 }
 
-enum StringType {
-    Linputal,
+pub enum StringType {
+    Literal,
     Basic,
-    LinputalMultiline,
+    LiteralMultiline,
     BasicMultiline,
 }
 
@@ -90,16 +90,16 @@ impl StringType {
     fn quote(&self) -> char {
         match self {
             StringType::Basic | StringType::BasicMultiline => DOUBLE_QUOTE,
-            StringType::Linputal | StringType::LinputalMultiline => SINGLE_QUOTE
+            StringType::Literal | StringType::LiteralMultiline => SINGLE_QUOTE
         }
     }
 
     fn quotes(&self) -> &str {
         match self {
             StringType::Basic => DOUBLE_QUOTE_STR,
-            StringType::Linputal => SINGLE_QUOTE_STR,
+            StringType::Literal => SINGLE_QUOTE_STR,
             StringType::BasicMultiline => DOUBLE_QUOTE_THRICE,
-            StringType::LinputalMultiline => SINGLE_QUOTE_THRICE
+            StringType::LiteralMultiline => SINGLE_QUOTE_THRICE
         }
     }
 
@@ -110,17 +110,17 @@ impl StringType {
     fn to_multiline(self) -> Self {
         match self {
             StringType::Basic => StringType::BasicMultiline,
-            StringType::Linputal => StringType::LinputalMultiline,
+            StringType::Literal => StringType::LiteralMultiline,
             same => same,
         }
     }
 
-    fn parse(self, first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
+    pub fn parse(self, first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
         match self {
             Self::Basic => StringType::parse_as_basic(first, input),
-            Self::Linputal => StringType::parse_as_linputal(first, input),
+            Self::Literal => StringType::parse_as_literal(first, input),
             Self::BasicMultiline => StringType::parse_as_basic_multiline(first, input),
-            Self::LinputalMultiline => StringType::parse_as_linputal_multiline(first, input),
+            Self::LiteralMultiline => StringType::parse_as_literal_multiline(first, input),
         }
     }
 
@@ -164,8 +164,8 @@ impl StringType {
         Ok(value)
     }
 
-    fn parse_as_linputal(first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
-        const TYPE: StringType = StringType::Linputal;
+    fn parse_as_literal(first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
+        const TYPE: StringType = StringType::Literal;
 
         let mut value = std::string::String::new();
 
@@ -253,8 +253,8 @@ impl StringType {
         Ok(value)
     }
 
-    fn parse_as_linputal_multiline(first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
-        const TYPE: StringType = StringType::LinputalMultiline;
+    fn parse_as_literal_multiline(first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
+        const TYPE: StringType = StringType::LiteralMultiline;
 
         let mut value = std::string::String::new();
         let mut quotes: u8 = 0b1;
@@ -302,12 +302,12 @@ impl StringType {
     }
 }
 
-impl TypeParser<std::string::String> for String {
+impl super::TypeParser<std::string::String> for String {
     fn parse(first: char, input: &mut impl Supplier) -> Result<std::string::String, crate::errors::ParserError> {
         let mut string_type = if StringType::Basic.is_type_quote(&first) {
             StringType::Basic
         } else {
-            StringType::Linputal
+            StringType::Literal
         };
         
         let mut quotes: u8 = 0b1;
