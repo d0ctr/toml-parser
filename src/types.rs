@@ -64,7 +64,7 @@ pub enum Value {
     Boolean(bool),
     String(std::string::String),
     DateTime(DateTimeType),
-    Nested(HashMap<Key, Value>)
+    Nested(Box<HashMap<Key, Value>>)
 }
 
 impl std::fmt::Display for Value {
@@ -93,7 +93,7 @@ impl Clone for Value {
 }
 
 
-#[derive(Debug)]
+#[derive(Hash, Eq, PartialEq, Debug)]
 pub struct Key {
     name: std::string::String
 }
@@ -121,14 +121,29 @@ impl Clone for Key {
 #[derive(Debug)]
 pub struct Entry {
     key: Key,
-    value: Option<Value>,
+    value: Value,
 }
 
 impl std::fmt::Display for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.value {
-            Some(v) => write!(f, "{}={:?}", self.key, v),
-            None => write!(f, "{}=None", self.key),
-        }
+        write!(f, "{}={:?}", self.key, v)
     }
 }
+
+impl Entry {
+    pub fn new(key: Key, value: Value) -> Self {
+        Self {
+            key,
+            value
+        }
+    }
+
+    pub fn get_key(&self) -> &Key {
+        &self.key
+    }
+
+    pub fn get_value(&self) -> &Value {
+        &self.value
+    }
+}
+

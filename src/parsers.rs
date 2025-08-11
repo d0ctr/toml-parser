@@ -95,7 +95,7 @@ impl KeyParser {
             }
         };
         let mut key = std::string::String::new();
-        
+
         if c == '"' || c == '\'' {
             key = if c == '"' {
                 if let Some(_c) = input.get() {
@@ -124,7 +124,7 @@ impl KeyParser {
                 } else {
                     return ParserError::from(FormatError::UnallowedCharacter(c, UnallowedCharacterReason::InKey));
                 }
-                
+
                 c = if let Some(_c) = input.get() {
                     _c
                 } else {
@@ -144,35 +144,50 @@ impl KeyParser {
         };
     }
 
-    pub fn parse_path(input: &mut impl Supplier) -> Result<std::vec::Vec<types::Key>,ParserError> {
-        let mut path: Vec<types::Key> = std::vec::Vec::new();
+}
 
-        let mut c= loop {
-            if let Some(_c) = crate::skip_whitespaces(input, false) {
-                if _c.is_comment_start() {
-                    if let Some(err) = check_comment_or_whitespaces(input, true) {
-                        return ParserError::extend(err);
-                    }
-                    continue;
+pub fn parse_entry(input: &mut impl Supplier) -> Result<types::Entry,ParserError> {
+    let mut path: Vec<types::Key> = std::vec::Vec::new();
+
+    let mut c = loop {
+        if let Some(_c) = crate::skip_whitespaces(input, false) {
+            if _c.is_comment_start() {
+                if let Some(err) = check_comment_or_whitespaces(input, true) {
+                    return ParserError::extend(err);
                 }
-                break Some(_c);
-            } else {
-                return ParserError::from(FormatError::EmptyValue)
-            };
-        };
-
-        loop {
-            let (key, is_done) = Self::parse_segment(c, input)?;
-            if c.is_some() {
-                c = None;
+                continue;
             }
+            break Some(_c);
+        } else {
+            return ParserError::from(FormatError::EmptyValue)
+        };
+    };
 
-            path.push(key);
+    
+    let (key, is_done) = KeyParser::parse_segment(c, input)?;
+
+    let value = if is_done {
+        ValueParser::parse(input)?
+    } else {
+        let mut map = std::boxed::Box::new(std::collections::HashMap::new());
+        let mut inner_map = &mut map;
+        loop {
+            let (key, is_done) = KeyParser::parse_segment(None, input)?;
+
             if is_done {
+                let value = ValueParser::parse(input)?;
+                inner_map.insert(key, value);
                 break;
+            } else {
+                let mut new_inner_map = std::boxed::Box::new(std::collections::HashMap::new());
+                inner_map.insert(key, types::Value::Nested(new_inner_map.clone()));
+                inner_map = &mut new_inner_map;
             }
         }
 
-        Ok(path)
+        types::Value::Nested(map)
     }
+
+
+    Ok(types::Entry::new(key, value))
 }
